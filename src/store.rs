@@ -9,21 +9,20 @@ use crate::checker::UriRecord;
 use crate::checker::UriResult;
 
 pub async fn get_connection() -> PgConnection {
-        PgConnection::connect("postgresql://postgres:docker@localhost:5432").await.unwrap()
+        PgConnection::connect("postgresql://postgres:postgres@localhost:5432").await.unwrap()
 }
 
 pub async fn get_endpoints(conn: &mut PgConnection) -> Vec<UriRecord> {
-        let mut rows = sqlx::query("SELECT * FROM main.endpoints;").fetch(conn);
+        let mut rows = sqlx::query("SELECT * FROM endpoints;").fetch(conn);
         
         let mut uris: Vec<UriRecord> = Vec::new();
         while let Some(row) = rows.try_next().await.unwrap() {
         
             let id = row.get::<i32, _>("id");
             let uri = row.get::<String, _>("uri");
-            println!("{}", uri);
             uris.push(UriRecord {
-                    id: id.try_into().unwrap(),
-                    uri,
+                id: id.try_into().unwrap(),
+                uri,
             })
         }
 
@@ -31,7 +30,7 @@ pub async fn get_endpoints(conn: &mut PgConnection) -> Vec<UriRecord> {
 }
 
 pub async fn add_endpoint(conn: &mut PgConnection, uri: String) {
-        conn.execute(sqlx::query("INSERT INTO main.endpoints (uri) VALUES ('$1');").bind(uri)).await.unwrap();
+        conn.execute(sqlx::query("INSERT INTO endpoints (uri) VALUES ($1);").bind(uri)).await.unwrap();
 }
 
 pub async fn add_health_check(conn: &mut PgConnection, result: UriResult) {
@@ -39,9 +38,20 @@ pub async fn add_health_check(conn: &mut PgConnection, result: UriResult) {
 
 pub async fn ensure_setup(conn: &mut PgConnection) {
     conn.execute(sqlx::query("
-        CREATE TABLE IF NOT EXISTS main.endpoints (
+        CREATE TABLE IF NOT EXISTS endpoints (
             id SERIAL PRIMARY KEY,
             uri TEXT
         );
     ")).await.unwrap();    
+
+    conn.execute(sqlx::query("
+        CREATE TABLE IF NOT EXISTS results (
+            id SERIAL PRIMARY KEY,
+            uri_id integer REFERENCES endpoints (id) NOT NULL,
+            request_time timestamp NOT NULL,
+            success boolean NOT NULL,
+            network_error boolean DEFAULT false,
+            status integer
+        );
+    ")).await.unwrap();
 }

@@ -74,12 +74,12 @@ pub struct UriResult {
     pub result: Result<SuccessDetails, ErrorDetails>, 
 }
 
-pub async fn check_all(uris: Vec<UriRecord>) -> Vec<UriResult> {
+pub async fn check_all(uris: &Vec<UriRecord>) -> Vec<UriResult> {
     let mut results = Vec::new();
 
     for row in uris {
         let id = row.id;
-        let uri = row.uri;
+        let uri = row.uri.clone();
 
         let result = check_endpoint(&uri).await;
         results.push(UriResult {
