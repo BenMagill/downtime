@@ -3,7 +3,7 @@ use std::fmt::{Debug, self, Display, Formatter};
 use reqwest::StatusCode;
 
 pub struct SuccessDetails {
-    pub status: StatusCode,
+    pub status: u16,
 }
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ impl Display for ErrorType {
 
 pub struct ErrorDetails {
     pub etype: ErrorType,
-    pub status: Option<StatusCode>,
+    pub status: u16,
 }
 
 pub async fn check_endpoint(uri: &String) -> Result<SuccessDetails, ErrorDetails>{
@@ -40,13 +40,13 @@ pub async fn check_endpoint(uri: &String) -> Result<SuccessDetails, ErrorDetails
             match status.as_u16() {
                 100..=399 => {
                     Ok(SuccessDetails {
-                        status: status,
+                        status: status.as_u16(),
                     })
                 }
                 _ => {
                     Err(ErrorDetails {
                         etype: ErrorType::ServerError,
-                        status: Some(status)
+                        status: status.as_u16()
                     })
 
                 }
@@ -57,7 +57,7 @@ pub async fn check_endpoint(uri: &String) -> Result<SuccessDetails, ErrorDetails
 
             Err(ErrorDetails {
                 etype: ErrorType::NetworkError,
-                status: None,
+                status: 0,
             })
         }
     };
@@ -95,14 +95,10 @@ pub fn debug_print_results(results: &Vec<UriResult>) {
     for result in results {
         match &result.result {
             Ok(i) => {
-                println!("Ok - Status: {}", i.status.as_u16());
+                println!("Ok - Status: {}", i.status);
             }
             Err(i) => {
-                let status = match &i.status {
-                    Some(st) => st.as_str(),
-                    None => "Unknown",
-                };
-                println!("{} - Status: {}", i.etype, status);
+                println!("{} - Status: {}", i.etype, &i.status);
             }
         }
     }

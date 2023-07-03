@@ -1,3 +1,4 @@
+use reqwest::StatusCode;
 use sqlx::{PgConnection, Connection};
 use futures::TryStreamExt;
 use sqlx::Row;
@@ -5,6 +6,8 @@ use sqlx::Column;
 use sqlx::ValueRef;
 use sqlx::Executor;
 
+use crate::checker::ErrorDetails;
+use crate::checker::SuccessDetails;
 use crate::checker::UriRecord;
 use crate::checker::UriResult;
 
@@ -34,20 +37,32 @@ pub async fn add_endpoint(conn: &mut PgConnection, uri: String) {
 }
 
 pub async fn add_health_check(conn: &mut PgConnection, result: UriResult) {
+        let success = match result.result {
+            Ok(_) => true,
+            Err(_) => false,
+        };
+        let status = match result.result {
+            Ok(i) => i.status,
+            Err(i) => i.status,
+        };
+        conn.execute(
+            sqlx::query("INSERT INTO endpoints (uri, request_time, success, network_error, status) VALUES ($1)")
+                .bind(result.uri)
+        ).await.unwrap();
 }
 
 pub async fn ensure_setup(conn: &mut PgConnection) {
     conn.execute(sqlx::query("
         CREATE TABLE IF NOT EXISTS endpoints (
             id SERIAL PRIMARY KEY,
-            uri TEXT
+            uri TEXT NOT NULL
         );
     ")).await.unwrap();    
 
     conn.execute(sqlx::query("
         CREATE TABLE IF NOT EXISTS results (
             id SERIAL PRIMARY KEY,
-            uri_id integer REFERENCES endpoints (id) NOT NULL,
+            uri TEXT NOT NULL,
             request_time timestamp NOT NULL,
             success boolean NOT NULL,
             network_error boolean DEFAULT false,
