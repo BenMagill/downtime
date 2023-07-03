@@ -2,6 +2,8 @@ use std::fmt::{Debug, self, Display, Formatter};
 
 use reqwest::StatusCode;
 
+use crate::store::{add_health_check, get_connection};
+
 pub struct SuccessDetails {
     pub status: u16,
 }
@@ -71,6 +73,7 @@ pub struct UriRecord {
 pub struct UriResult {
     pub id: u32,
     pub uri: String,
+    pub time: chrono::DateTime<chrono::Utc>, 
     pub result: Result<SuccessDetails, ErrorDetails>, 
 }
 
@@ -82,11 +85,15 @@ pub async fn check_all(uris: &Vec<UriRecord>) -> Vec<UriResult> {
         let uri = row.uri.clone();
 
         let result = check_endpoint(&uri).await;
-        results.push(UriResult {
+        let res = UriResult {
             id,
             uri,
+            time: chrono::Utc::now(),
             result
-        })
+        };
+        let mut conn = get_connection().await;
+        add_health_check(&mut conn, &res).await;
+        results.push(res);
     }
     return results;
 }

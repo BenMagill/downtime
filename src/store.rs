@@ -7,6 +7,7 @@ use sqlx::ValueRef;
 use sqlx::Executor;
 
 use crate::checker::ErrorDetails;
+use crate::checker::ErrorType;
 use crate::checker::SuccessDetails;
 use crate::checker::UriRecord;
 use crate::checker::UriResult;
@@ -36,18 +37,37 @@ pub async fn add_endpoint(conn: &mut PgConnection, uri: String) {
         conn.execute(sqlx::query("INSERT INTO endpoints (uri) VALUES ($1);").bind(uri)).await.unwrap();
 }
 
-pub async fn add_health_check(conn: &mut PgConnection, result: UriResult) {
+pub async fn add_health_check(conn: &mut PgConnection, result: &UriResult) {
         let success = match result.result {
             Ok(_) => true,
             Err(_) => false,
         };
-        let status = match result.result {
+        let status = match &result.result {
             Ok(i) => i.status,
             Err(i) => i.status,
         };
+        let network_error = match &result.result {
+            Ok(_) => false,
+            Err(e) => {
+                match e.etype {
+                    ErrorType::NetworkError => true,
+                    ErrorType::ServerError => false
+                }
+            }   
+        };
         conn.execute(
-            sqlx::query("INSERT INTO endpoints (uri, request_time, success, network_error, status) VALUES ($1)")
-                .bind(result.uri)
+            sqlx::query("INSERT INTO results (uri, request_time, success, network_error, status) VALUES (
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    $5
+                )")
+                .bind(&result.uri)
+                .bind(result.time)
+                .bind(success)
+                .bind(network_error)
+                .bind(i32::from(status))
         ).await.unwrap();
 }
 
